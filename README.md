@@ -171,6 +171,9 @@ sheng-gpu-metal=1  sheng-gpu-addon=1  sheng-dpu-scanout=2
 | 目标 | 位置 |
 |---|---|
 | 完整构建配方：参数、trust 规则、UUID 两处对齐、boot 前门禁、日志判读 | [`docs/BUILD.md`](docs/BUILD.md) |
+| **在别人的 K30 上跑起来**：机型判定、UUID 怎么定、屏幕参数怎么改 | [`docs/OTHER-DEVICES.md`](docs/OTHER-DEVICES.md) |
+| 日志关键字对照表（每条打印的含义与正常值） | [`docs/LOG-KEYWORDS.md`](docs/LOG-KEYWORDS.md) |
+| 可直接使用的构建工作流（含本文两处关键改动） | [`ci/`](ci/) |
 | 改 payload / 改 UUID / 合并 trust / 启动前自检 / 抓日志判读 的脚本 | [`tools/`](tools/) |
 
 照着 `docs/BUILD.md` 走，用的是上游的构建脚本 + 这里的几个工具，产出的是**你自己那份**镜像，
