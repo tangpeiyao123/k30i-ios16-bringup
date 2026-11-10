@@ -21,6 +21,33 @@
 
 ---
 
+## 这不是双系统安装
+
+先说清楚方案性质，否则后面所有结论都会被误读。
+
+`fastboot boot boot.img` 的语义是**把镜像装进 RAM 启动一次，不写任何分区**。
+数据卷也不是设备上的真实分区，而是由镜像内部携带的种子合成的——日志里这行是证据：
+
+```
+NATIVE_OWNER_DATA provider=ram uuid=...
+NATIVE_OWNER_DATA stage=1 selected=1000009 path=/dev/disk5s1 logical_bytes=21474836480 seed_base=0
+```
+
+| | |
+|---|---|
+| 重启 | 回到原来的系统，没有"开机选系统"这回事 |
+| iOS 里的改动 | 不落到 Android 分区，不占你的存储、不碰你的 App 数据 |
+| 分区表 | 始终原样，不会留下 iOS 分区 |
+| 想再进 iOS | 必须再连电脑跑一次 `fastboot boot` |
+
+所以它现在的形态是**可重复进入的一次性实验环境**，不是可以日常使用的系统。
+唯一的不可逆操作是 `fastboot flash boot`，本仓库所有流程都只用 `boot`、不用 `flash`。
+
+前置条件：**bootloader 已解锁**（必须；解锁会清空设备数据，先备份）；**不需要 root，也不需要 TWRP**。
+完整清单见 [`docs/OTHER-DEVICES.md`](docs/OTHER-DEVICES.md)。
+
+---
+
 ## 一、从 20 fps 到 57–61 fps：差别只有一个启动参数
 
 现象很好骗人：桌面正常、毛玻璃正常、还能滑动，只是"卡"。三条计数器才说明它在跑软件合成：
@@ -88,6 +115,9 @@ module_uuid = uuid5(NAMESPACE_URL, "picasso:statusbar:" + cdhash_hex)
 - **新内核 + 旧种子** → `panic: offline scratch Data mount failed: 2`（ENOENT）。它们是同一次构建的产物，不能交叉组合。
 - **卷 UUID 存在两处**：内核里一处 ASCII 字符串，种子里 **7 份大端二进制副本**。
   只改内核那一处，结果仍是 `EFI_COMPROMISED_DATA`——内核会拿自己的字符串去比种子里的。
+
+**但正常情况下你不需要动它**：同一次构建的 kernel + seed 两侧天然一致。
+只有混用不同批次的产物时才需要对齐，正确做法优先是"别混用"。
 
 ### 一条值得记下的红鲱鱼
 
