@@ -13,7 +13,7 @@
 | USB 调试 / fastboot 工具 | ✅ 必须 | platform-tools；Windows 需要能枚举到 fastboot 设备 |
 | **root** | ❌ **不需要** | 整个流程没有任何一步需要 root，也不改 Android 系统分区 |
 | TWRP / 第三方 recovery | ❌ 当前流程不需要 | 我们排障早期用过，但现在的流程只依赖 fastboot |
-| **原厂 boot 镜像备份** | ✅ 强烈建议 | 这是回退的唯一手段。设备一旦写入 iOS 引导镜像，Android 就不再启动了 |
+| **原厂 boot 镜像备份** | ✅ **必须** | 这是回退的唯一手段。设备一旦写入 iOS 引导镜像，Android 就不再启动。做法见 [`docs/BACKUP.md`](BACKUP.md) |
 | 电量 | 建议 ≥ 3.8 V | 一次启动 + 抓日志会持续耗电，低于 3.75 V 容易中途断电 |
 
 **不需要 root 这件事值得强调**：所有操作都在 fastboot 层完成，Android 侧一个分区都不写。
@@ -168,7 +168,7 @@ PICASSO_GPU open: plugin type=4147 ...
 
 ## 6. 回退怎么做
 
-**回退不是"重启"，是"刷回去"。** 这一点务必分清：
+**回退不是"重启"，是"刷回去"。** 这一点务必分清（备份/恢复的完整步骤见 [`docs/BACKUP.md`](BACKUP.md)）：
 
 | 步骤 | 命令 | 作用 |
 |---|---|---|
