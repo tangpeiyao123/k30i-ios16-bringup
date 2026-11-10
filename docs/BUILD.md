@@ -29,6 +29,16 @@ git checkout feat/ios16-gpu
 
 本项目是在这个分支上做设备适配与排障，没有另立内核树。
 
+本文提到的那几处内核侧改动（SCM 只读探针、`sheng-scm` 开关）在我们 fork 的 `gpu72` 分支上，
+可以直接对照：
+
+```
+https://github.com/tangpeiyao123/UniXNU-picasso/tree/gpu72
+  drivers/NativeWlan/ScmProbe.c          SCM/TZ 只读探针（原始寄存器 + PSCI 对照组）
+  package/PicassoDisplay.cpp             加速器桩与 display-scale 策略
+  package/picasso-springboard/           SpringBoard 注入库（状态栏补偿 + 屏幕参数打印）
+```
+
 ---
 
 ## 2. 构建
