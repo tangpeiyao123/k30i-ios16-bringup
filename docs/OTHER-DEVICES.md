@@ -5,7 +5,57 @@
 
 ---
 
-## 0. 先确认机型
+## 0. 前置条件（必读）
+
+| 条件 | 是否必须 | 说明 |
+|---|---|---|
+| **bootloader 已解锁** | ✅ **必须** | 没解锁时 `fastboot boot` 会直接被拒。小米机型需走官方解锁流程（绑定账号 + 等待期），解锁会**清空设备数据**，先备份 |
+| USB 调试 / fastboot 工具 | ✅ 必须 | platform-tools；Windows 需要能枚举到 fastboot 设备 |
+| **root** | ❌ **不需要** | 整个流程没有任何一步需要 root，也不改 Android 系统分区 |
+| TWRP / 第三方 recovery | ❌ 当前流程不需要 | 我们排障早期用过，但现在的流程只依赖 fastboot |
+| 可用的原系统 | ✅ 建议 | 它是你的回退目标。别把 Android 刷坏，否则出问题没有退路 |
+| 电量 | 建议 ≥ 3.8 V | 一次启动 + 抓日志会持续耗电，低于 3.75 V 容易中途断电 |
+
+**不需要 root 这件事值得强调**：所有操作都在 fastboot 层完成，Android 侧一个分区都不写。
+
+---
+
+## 0.1 这不是双系统
+
+这一点必须在动手前说清楚，否则预期会错：
+
+```
+fastboot boot boot.img
+```
+
+的语义是「把镜像装进 RAM 启动一次」，**不写任何分区**。数据卷也不是设备上的真实分区，
+而是由镜像内部携带的种子合成出来的——日志里这行是证据：
+
+```
+NATIVE_OWNER_DATA provider=ram uuid=...
+NATIVE_OWNER_DATA stage=1 selected=1000009 path=/dev/disk5s1 logical_bytes=21474836480 seed_base=0
+```
+
+`provider=ram` 就是答案。
+
+由此得到四个结论：
+
+| | |
+|---|---|
+| **重启就回到原来的系统** | 不会出现"开机选单让你选 Android 还是 iOS" |
+| **iOS 里的改动不落到 Android 分区** | 不占你的存储、不碰你的 App 数据 |
+| **不留下 iOS 分区表** | 磁盘分区布局始终是原样 |
+| **每次进 iOS 都要连电脑** | 想进就得再跑一次 `fastboot boot`，这不是日常可用的形态 |
+
+代价和收益是一体的：正因为不写分区，它才安全（panic 也只是重启回原系统，
+我们在实测里遇到过多次）；也正因为不写分区，它目前**不是**一个可以日常使用的系统。
+
+**唯一不可逆的操作是 `fastboot flash boot`**——那才会改写分区。本文档和仓库里所有流程
+都只用 `boot`，不用 `flash`。
+
+---
+
+## 0.2 先确认机型
 
 | 机型 | 平台 | 能不能用这套 |
 |---|---|---|
@@ -42,29 +92,30 @@ python3 tools/fix_data_uuid.py boot.img --verify
 
 ## 2. 什么时候才需要 `fix_data_uuid`
 
-只有一种情况：**你想复用设备上已经装好的数据盘**（比如上一次刷进去的系统、里面有你的 App 数据）。
+**正常情况下不需要。** 同一次构建产出的 kernel 和 seed，UUID 天然一致。
 
-那时内核里的 UUID 必须等于那个数据卷的 UUID。做法：
+只有一种情况需要动它：**你混用了不同批次的产物**——比如只重编了内核、却沿用上一次的种子。
+这时两侧对不上，表现为：
+
+- `EFI_COMPROMISED_DATA`（启动器层，连内核都没进）
+- 或 `panic: offline scratch Data mount failed: 2`（内核层，ENOENT）
+
+**首选做法是不要混用**：重新用同一次构建的 kernel + seed。
+如果确实需要对齐（例如你手上只有一份种子），再改：
 
 ```bash
 # 先看当前镜像两侧是什么值
 python3 tools/fix_data_uuid.py boot.img --show
 
-# 改到目标值（内核 1 处 ASCII + 种子 7 处二进制会一起改）
+# 把内核 1 处 ASCII + 种子 7 处二进制一起改到同一次构建里的那个值
 python3 tools/fix_data_uuid.py boot.img boot-fixed.img --to <目标 UUID>
 ```
 
-目标 UUID 从哪来：**上一次能启动的那台设备**的控制台日志里有一行
+`--show` 会把两侧都打出来，并直接告诉你「是否一致」。**目标值取同一次构建里的那一侧，
+不要照抄我们的 `0EBB496E…`**——那是我们这台机器的历史值。
 
-```
-NATIVE_OWNER_DATA provider=ram uuid=XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX
-```
-
-这行打的是**内核期望值**。如果它和数据盘不一致，启动就会失败；所以对一台能正常启动的设备，
-这行就是那个数据卷的 UUID。
-
-⚠️ 换 UUID 之后，**种子也要跟着来自同一次构建**。新内核 + 旧种子 = ENOENT panic，
-这跟 UUID 是两回事。
+⚠️ 改完仍然要保持 kernel 与 seed 同源。新内核 + 旧种子即使 UUID 对齐了，
+只要版本不配套，一样会 ENOENT。
 
 ---
 
