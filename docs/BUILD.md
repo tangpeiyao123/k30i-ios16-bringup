@@ -14,8 +14,15 @@
 | 工具 | `fastboot`（platform-tools）、`python3`、`git` |
 | iOS 输入 | 自备 iOS 16.7.16 IPSW（上游脚本会从中取 userdata），本项目不分发 |
 
-**先明确一件事**：所有实验都用 `fastboot boot`，**不要 `flash`**。这样最坏情况是硬重启回原系统，
-分区和数据都还在。只有你确认某个镜像稳定之后，才考虑写进 boot 分区。
+**先明确一件事**：日常试错用 `fastboot boot`，**不要 `flash`**——它不写分区，失败最多重启一次。
+
+但别把"不写分区"误解成"设备还留着原系统"。设备状态是这样的：
+
+- boot 分区一旦写入 iOS 引导镜像，**开机就直接进 iOS**，Android 不再启动
+- 数据卷是**持久化**的（`sheng-data-persist=2` + 一个被替换的 20 GiB 分区）
+- 所以回退不是"重启"，而是**刷回原厂 boot 镜像**；动手前先把原厂 boot 分区备份出来
+
+详见 `docs/OTHER-DEVICES.md` 的 §0.1 与 §6。
 
 ---
 
