@@ -21,27 +21,41 @@
 
 ---
 
-## 这不是双系统安装
+## 这不是双系统，也不是「一次性实验环境」
 
-先说清楚方案性质，否则后面所有结论都会被误读。
+先说清楚方案性质，否则后面所有结论都会被误读。**这里要纠正一个很容易想当然的预期**：
 
-`fastboot boot boot.img` 的语义是**把镜像装进 RAM 启动一次，不写任何分区**。
-数据卷也不是设备上的真实分区，而是由镜像内部携带的种子合成的——日志里这行是证据：
+- **不是双系统**：没有开机菜单，没有「Android / iOS 二选一」。boot 分区写入 iOS 引导镜像后，
+  开机直接进 iOS，Android 不再是可启动的系统。
+- **不是重启就回原系统**：数据是**持久化**的，重启后 iOS 里的东西还在。
+
+数据持久化的证据在启动参数和计数器里：
 
 ```
-NATIVE_OWNER_DATA provider=ram uuid=...
-NATIVE_OWNER_DATA stage=1 selected=1000009 path=/dev/disk5s1 logical_bytes=21474836480 seed_base=0
+sheng-data-persist=2   picasso-data-init-blank=1
+picasso-data-replace-20g=1   picasso-persist-records=1
 ```
+
+```
+DATA st= hdr= gpt=xx/xx lba=...   pres= ld= wr= sy= er=
+```
+
+后半行是持久化层的统计：`pres` 存在标志、`ld` 已加载页、`wr` 写入次数、`sy` 同步次数、`er` 错误数；
+`gpt` / `lba` 说明它按 GPT 定位到一个真实分区，`replace-20g` 说明替换的是 20 GiB 那块。
+
+所以真实形态是「**把原系统替换掉的单系统安装**」：
 
 | | |
 |---|---|
-| 重启 | 回到原来的系统，没有"开机选系统"这回事 |
-| iOS 里的改动 | 不落到 Android 分区，不占你的存储、不碰你的 App 数据 |
-| 分区表 | 始终原样，不会留下 iOS 分区 |
-| 想再进 iOS | 必须再连电脑跑一次 `fastboot boot` |
+| 开机 | 直接进 iOS |
+| iOS 数据 | 持久化在分区里，重启后还在 |
+| Android | 不再是可启动系统 |
+| 回退 | 必须刷回原厂 boot 镜像，必要时还要处理被替换的数据分区 |
+| `fastboot boot` | 只是**测试新镜像时**的手段（它确实不写分区），不是设备当前状态 |
 
-所以它现在的形态是**可重复进入的一次性实验环境**，不是可以日常使用的系统。
-唯一的不可逆操作是 `fastboot flash boot`，本仓库所有流程都只用 `boot`、不用 `flash`。
+`fastboot boot` 不写分区这件事仍然成立，但它的含义是「这一次启动用内存里的镜像」，
+**不会把设备恢复成 Android**。本仓库所有实验都用 `boot` 而不是 `flash`，是为了试错时不动分区，
+不是因为设备还能回原系统。
 
 前置条件：**bootloader 已解锁**（必须；解锁会清空设备数据，先备份）；**不需要 root，也不需要 TWRP**。
 完整清单见 [`docs/OTHER-DEVICES.md`](docs/OTHER-DEVICES.md)。
